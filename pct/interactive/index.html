@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PCT 2021 — Quinn Coyle</title>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Progress Bar -->
+  <div id="progress-bar">
+    <div id="progress-fill"></div>
+    <div id="progress-cursor"></div>
+  </div>
+
+  <!-- Story View -->
+  <div id="story-view" class="active">
+    <!-- Map -->
+    <div id="map-container">
+      <div id="map"></div>
+      <!-- Day Counter Widget -->
+      <div id="day-counter">
+        <canvas id="mini-map" width="80" height="160"></canvas>
+        <div id="day-counter-text">
+          <div id="day-counter-day">Day 1</div>
+          <div id="day-counter-miles">0 mi</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Story Content -->
+    <div id="story-panel">
+      <!-- Hero -->
+      <div id="hero">
+        <h1>PCT 2021</h1>
+        <p class="hero-subtitle">Quinn Coyle</p>
+        <p class="hero-stats">
+          <span id="hero-days"></span> days &middot;
+          <span id="hero-miles"></span> miles &middot;
+          <span id="hero-elev"></span> ft of climbing
+        </p>
+        <div class="scroll-hint">Scroll to explore &darr;</div>
+      </div>
+
+      <!-- Day Cards -->
+      <div id="day-cards"></div>
+
+      <!-- Garmin Note & Border Photo -->
+      <div id="trail-end">
+        <img class="border-photo" src="../photo-coordinates/photos/IMG_6999.JPG" alt="Quinn at the Canada/US border">
+        <p class="garmin-note">Unfortunately Garmin charging cord broke here so I didn't record the last 2 days!</p>
+      </div>
+
+      <!-- Footer -->
+      <div id="footer">
+        <p>From Mexico to Canada, one step at a time.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Flyover View -->
+  <div id="flyover-view">
+    <div id="flyover-map"></div>
+
+    <!-- Flyover Controls -->
+    <div id="flyover-controls">
+      <button id="flyover-play" title="Play/Pause">&#9654;</button>
+      <div id="speed-selector">
+        <button class="speed-btn" data-speed="0.5">0.5x</button>
+        <button class="speed-btn active" data-speed="1">1x</button>
+        <button class="speed-btn" data-speed="2">2x</button>
+        <button class="speed-btn" data-speed="4">4x</button>
+      </div>
+    </div>
+
+    <!-- Flyover Day Info -->
+    <div id="flyover-info">
+      <div id="flyover-photo"></div>
+      <div id="flyover-details">
+        <div id="flyover-day-label"></div>
+        <div id="flyover-day-name"></div>
+        <div id="flyover-stats"></div>
+      </div>
+    </div>
+
+    <!-- Flyover Mile Counter -->
+    <div id="flyover-mile-counter">
+      <span id="flyover-current-mile">0</span> / <span id="flyover-total-miles"></span> mi
+    </div>
+
+    <!-- Compass -->
+    <div id="compass">
+      <div id="compass-needle">N</div>
+    </div>
+
+    <!-- Flyover Mini Map -->
+    <div id="flyover-minimap-container">
+      <canvas id="flyover-minimap" width="100" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- View Toggle -->
+  <div id="view-toggle">
+    <button id="btn-story" class="toggle-btn active" title="Story View">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+    </button>
+    <button id="btn-flyover" class="toggle-btn" title="Flyover View">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+    </button>
+  </div>
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

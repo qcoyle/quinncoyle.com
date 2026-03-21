@@ -55,6 +55,9 @@
     .route-peak { font-size: 0.82rem; color: #666; margin-top: 1px; }
     .route-meta { font-size: 0.78rem; color: #999; margin-top: 2px; }
     .route-stars { color: #c8a020; font-size: 0.8rem; letter-spacing: -0.05em; }
+    .route-consequence { font-size: 0.75rem; letter-spacing: -0.03em; }
+    .route-consequence .skull-filled { color: #666; }
+    .route-consequence .skull-empty { color: #ddd; }
 
     /* Detail panel */
     #detail-panel {
@@ -893,8 +896,11 @@
       item.dataset.type = route.type;
 
       const starsHTML = route.stars
-        ? `<span class="route-stars">${'★'.repeat(route.stars)}${'☆'.repeat(4 - route.stars)}</span> · `
+        ? `<span class="route-stars">${'★'.repeat(route.stars)}${'☆'.repeat(4 - route.stars)}</span> `
         : '';
+      const consequenceHTML = route.consequence
+        ? `<span class="route-consequence">${'<span class="skull-filled">☠</span>'.repeat(route.consequence)}${'<span class="skull-empty">☠</span>'.repeat(4 - route.consequence)}</span> · `
+        : (route.stars ? ' · ' : '');
       const peakHTML = route.peak && route.peak !== route.name
         ? `<div class="route-peak">${route.peak}</div>` : '';
 
@@ -906,7 +912,7 @@
         <div class="route-info">
           <div class="route-name">${route.name}</div>
           ${peakHTML}
-          <div class="route-meta">${starsHTML}${metaParts.join(' · ')}</div>
+          <div class="route-meta">${starsHTML}${consequenceHTML}${metaParts.join(' · ')}</div>
         </div>`;
       item.addEventListener('click', () => selectRoute(route.id));
       list.appendChild(item);

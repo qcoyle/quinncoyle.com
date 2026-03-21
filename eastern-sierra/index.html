@@ -23,6 +23,20 @@
     #sidebar-header .subtitle { font-size: 0.9rem; color: #888; margin-top: 3px; font-style: italic; }
 
     #filters { display: flex; gap: 6px; padding: 12px 24px; border-bottom: 1px solid rgba(0,0,0,0.08); }
+
+    #sort-bar {
+      display: flex; align-items: center; gap: 5px;
+      padding: 8px 24px; border-bottom: 1px solid rgba(0,0,0,0.08);
+    }
+    #sort-bar .sort-label { font-size: 0.72rem; color: #aaa; text-transform: uppercase; letter-spacing: 0.07em; flex-shrink: 0; margin-right: 2px; }
+    .sort-btn {
+      padding: 4px 10px; border: 1.5px solid rgba(0,0,0,0.12);
+      background: transparent; border-radius: 14px;
+      font-family: 'EB Garamond', Georgia, serif; font-size: 0.8rem;
+      cursor: pointer; color: #666; transition: all 0.15s ease;
+    }
+    .sort-btn:hover { border-color: rgba(0,0,0,0.3); color: #1a1a1a; }
+    .sort-btn.active { background: #1a1a1a; border-color: #1a1a1a; color: #fff; }
     .filter-btn {
       flex: 1; padding: 6px 10px; border: 1.5px solid rgba(0,0,0,0.15);
       background: transparent; border-radius: 20px;
@@ -137,6 +151,12 @@
         <button class="filter-btn active" data-filter="all">All</button>
         <button class="filter-btn ski" data-filter="ski">&#9731; Ski</button>
         <button class="filter-btn run" data-filter="run">&#9872; Run</button>
+      </div>
+      <div id="sort-bar">
+        <span class="sort-label">Sort</span>
+        <button class="sort-btn active" data-sort="default">Default</button>
+        <button class="sort-btn" data-sort="consequence">&#9760; Consequence</button>
+        <button class="sort-btn" data-sort="length">&#8597; Length</button>
       </div>
       <div id="route-list"></div>
       <div id="detail-panel">
@@ -599,7 +619,7 @@
     {
       id: 'sierra-high-route',
       name: 'Skiers Sierra High Route', peak: 'Sierra Nevada Traverse',
-      type: 'ski', stars: 5,
+      type: 'ski', stars: 4,
       season: 'Winter / Spring',
       distance: '~200 mi (full route)', gain: 'Varies by section', time: 'Multi-day',
       terrain: 'High alpine traverse', bestMonths: 'Mar–May',
@@ -829,6 +849,24 @@
 
   let activeRouteId = null;
   let currentFilter = 'all';
+  let currentSort = 'default';
+
+  function parseDistance(dist) {
+    if (!dist) return Infinity;
+    const clean = dist.replace('¾', '.75').replace('½', '.5').replace('¼', '.25').replace('~', '');
+    const match = clean.match(/[\d.]+/);
+    return match ? parseFloat(match[0]) : Infinity;
+  }
+
+  function sortedRoutes() {
+    const copy = [...ROUTES];
+    if (currentSort === 'consequence') {
+      copy.sort((a, b) => (b.consequence || 0) - (a.consequence || 0));
+    } else if (currentSort === 'length') {
+      copy.sort((a, b) => parseDistance(a.distance) - parseDistance(b.distance));
+    }
+    return copy;
+  }
 
   buildRouteList();
 
@@ -889,14 +927,15 @@
   function buildRouteList() {
     const list = document.getElementById('route-list');
     list.innerHTML = '';
-    ROUTES.forEach(route => {
+    sortedRoutes().forEach(route => {
       const item = document.createElement('div');
       item.className = 'route-item';
       item.dataset.id = route.id;
       item.dataset.type = route.type;
 
-      const starsHTML = route.stars
-        ? `<span class="route-stars">${'★'.repeat(route.stars)}${'☆'.repeat(4 - route.stars)}</span> `
+      const s = Math.min(route.stars || 0, 4);
+      const starsHTML = s
+        ? `<span class="route-stars">${'★'.repeat(s)}${'☆'.repeat(4 - s)}</span> `
         : '';
       const consequenceHTML = route.consequence
         ? `<span class="route-consequence">${'<span class="skull-filled">☠</span>'.repeat(route.consequence)}${'<span class="skull-empty">☠</span>'.repeat(4 - route.consequence)}</span> · `
@@ -1033,6 +1072,21 @@
       document.querySelectorAll('.route-item').forEach(el => el.classList.remove('active'));
       activeRouteId = null;
     }
+  });
+
+  // ── SORT ───────────────────────────────────────────────────────────────────
+
+  document.querySelectorAll('.sort-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentSort = btn.dataset.sort;
+      document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      buildRouteList();
+      // Re-apply current filter visibility
+      document.querySelectorAll('.route-item').forEach(item => {
+        item.classList.toggle('hidden', currentFilter !== 'all' && item.dataset.type !== currentFilter);
+      });
+    });
   });
 
   // ── FILTERS ────────────────────────────────────────────────────────────────

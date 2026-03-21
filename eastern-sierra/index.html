@@ -154,7 +154,7 @@
       </div>
       <div id="sort-bar">
         <span class="sort-label">Sort</span>
-        <button class="sort-btn active" data-sort="default">Default</button>
+        <button class="sort-btn active" data-sort="north-south">N → S</button>
         <button class="sort-btn" data-sort="consequence">&#9760; Consequence</button>
         <button class="sort-btn" data-sort="length">&#8597; Length</button>
       </div>
@@ -890,7 +890,7 @@
 
   let activeRouteId = null;
   let currentFilter = 'all';
-  let currentSort = 'default';
+  let currentSort = 'north-south';
 
   function parseDistance(dist) {
     if (!dist) return Infinity;
@@ -901,7 +901,9 @@
 
   function sortedRoutes() {
     const copy = [...ROUTES];
-    if (currentSort === 'consequence') {
+    if (currentSort === 'north-south') {
+      copy.sort((a, b) => (b.dropIn ? b.dropIn[1] : 0) - (a.dropIn ? a.dropIn[1] : 0));
+    } else if (currentSort === 'consequence') {
       copy.sort((a, b) => (a.consequence || 0) - (b.consequence || 0));
     } else if (currentSort === 'length') {
       copy.sort((a, b) => parseDistance(a.distance) - parseDistance(b.distance));

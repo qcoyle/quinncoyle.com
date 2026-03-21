@@ -664,19 +664,6 @@
     // ── ADDITIONAL SKI ROUTES ─────────────────────────────────────────────
 
     {
-      id: 'sierra-high-route',
-      name: 'Skiers Sierra High Route', peak: 'Sierra Nevada Traverse',
-      type: 'ski', stars: 4,
-      season: 'Winter / Spring',
-      distance: '~200 mi (full route)', gain: 'Varies by section', time: 'Multi-day',
-      terrain: 'High alpine traverse', bestMonths: 'Mar–May',
-      gear: 'Full ski touring kit, navigation, rescue gear',
-      trailhead: 'Varies — I-80 to I-50 is classic',
-      dropIn: [-119.2579, 37.9110],
-      notes: 'Epic multi-day winter traverse of the Sierra Nevada. Best done in sections — I-80 to I-50 is a classic leg. Requires serious logistics, route-finding, and ski mountaineering skills. One of the great alpine challenges in the lower 48.',
-      coords: [[-119.2579, 37.9110], [-119.1600, 37.8450], [-118.7471, 37.4352], [-118.3401, 36.7713]]
-    },
-    {
       id: 'sawtooth-traverse',
       name: 'Sawtooth Traverse', peak: 'Sawtooth Ridge / The Hulk',
       type: 'ski', stars: 4,
@@ -908,7 +895,7 @@
   function sortedRoutes() {
     const copy = [...ROUTES];
     if (currentSort === 'consequence') {
-      copy.sort((a, b) => (b.consequence || 0) - (a.consequence || 0));
+      copy.sort((a, b) => (a.consequence || 0) - (b.consequence || 0));
     } else if (currentSort === 'length') {
       copy.sort((a, b) => parseDistance(a.distance) - parseDistance(b.distance));
     }

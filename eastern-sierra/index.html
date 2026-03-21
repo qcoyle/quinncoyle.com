@@ -133,8 +133,48 @@
 
     @media (max-width: 640px) {
       #app { flex-direction: column; }
-      #map { height: 52vh; flex: none; }
-      #sidebar { width: 100%; height: 48vh; border-left: none; border-top: 1px solid rgba(0,0,0,0.08); }
+      #map { height: 38vh; flex: none; }
+      #sidebar {
+        width: 100%; height: 62vh; border-left: none;
+        border-top: 1px solid rgba(0,0,0,0.08);
+      }
+      #sidebar-header { padding: 14px 16px 10px; }
+      #sidebar-header h1 { font-size: 1.15rem; }
+
+      /* Larger tap targets */
+      .route-item { padding: 14px 16px; gap: 12px; }
+      .route-name { font-size: 1rem; }
+      .route-meta { font-size: 0.82rem; margin-top: 3px; }
+
+      /* Touch-friendly filter / sort buttons */
+      #filters { padding: 10px 16px; gap: 8px; }
+      .filter-btn { padding: 9px 8px; font-size: 0.95rem; }
+      #sort-bar { padding: 7px 16px; gap: 6px; }
+      .sort-btn { padding: 6px 11px; font-size: 0.84rem; }
+
+      /* Smooth iOS scroll */
+      #route-list { -webkit-overflow-scrolling: touch; }
+
+      /* Detail panel as bottom sheet over the map */
+      #detail-panel {
+        position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+        max-height: 65vh; border-radius: 16px 16px 0 0;
+        box-shadow: 0 -4px 24px rgba(0,0,0,0.18);
+        padding: 20px 20px 32px;
+      }
+      #detail-close {
+        font-size: 1.5rem; padding: 4px 6px;
+        top: -2px; right: -2px;
+      }
+      /* Drag handle visual hint */
+      #detail-panel::before {
+        content: ''; display: block; width: 36px; height: 4px;
+        background: rgba(0,0,0,0.18); border-radius: 2px;
+        margin: 0 auto 14px; flex-shrink: 0;
+      }
+      #detail-stats { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .stat-box { padding: 9px 12px; }
+      .stat-value { font-size: 1.05rem; }
     }
   </style>
 </head>
@@ -1051,7 +1091,15 @@
       (b, c) => b.extend(c),
       new mapboxgl.LngLatBounds(route.coords[0], route.coords[0])
     );
-    map.fitBounds(bounds, { padding: { top: 80, bottom: 80, left: 60, right: 380 }, maxZoom: 13, duration: 800 });
+    const isMobile = window.innerWidth <= 640;
+    try {
+      map.fitBounds(bounds, {
+        padding: isMobile
+          ? { top: 60, bottom: 260, left: 20, right: 20 }
+          : { top: 80, bottom: 80, left: 60, right: 380 },
+        maxZoom: 13, duration: 800
+      });
+    } catch (e) { /* ignore fitBounds errors */ }
 
     showDetail(route);
   }

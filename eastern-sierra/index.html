@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eastern Sierra Routes — Quinn Coyle</title>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; font-family: 'EB Garamond', Georgia, serif; color: #1a1a1a; background: #f5f5f0; overflow: hidden; }
+
+    #app { display: flex; height: 100vh; width: 100%; }
+    #map { flex: 1; height: 100vh; }
+
+    #sidebar {
+      width: 340px; height: 100vh; background: #f5f5f0;
+      display: flex; flex-direction: column;
+      border-left: 1px solid rgba(0,0,0,0.08); overflow: hidden; flex-shrink: 0;
+    }
+    #sidebar-header { padding: 24px 24px 16px; border-bottom: 1px solid rgba(0,0,0,0.08); }
+    #sidebar-header h1 { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
+    #sidebar-header .subtitle { font-size: 0.9rem; color: #888; margin-top: 3px; font-style: italic; }
+
+    #filters { display: flex; gap: 6px; padding: 12px 24px; border-bottom: 1px solid rgba(0,0,0,0.08); }
+    .filter-btn {
+      flex: 1; padding: 6px 10px; border: 1.5px solid rgba(0,0,0,0.15);
+      background: transparent; border-radius: 20px;
+      font-family: 'EB Garamond', Georgia, serif; font-size: 0.88rem;
+      cursor: pointer; color: #555; transition: all 0.15s ease;
+    }
+    .filter-btn:hover { border-color: rgba(0,0,0,0.35); color: #1a1a1a; }
+    .filter-btn.active { background: #1a1a1a; border-color: #1a1a1a; color: #fff; }
+    .filter-btn.ski.active { background: #4A90D9; border-color: #4A90D9; }
+    .filter-btn.run.active { background: #E8623A; border-color: #E8623A; }
+
+    #route-list { flex: 1; overflow-y: auto; padding: 4px 0; }
+    #route-list::-webkit-scrollbar { width: 4px; }
+    #route-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 2px; }
+
+    .route-item {
+      padding: 11px 24px; cursor: pointer;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      transition: background 0.12s ease; display: flex; align-items: flex-start; gap: 10px;
+    }
+    .route-item:hover { background: rgba(0,0,0,0.04); }
+    .route-item.active { background: rgba(0,0,0,0.07); }
+    .route-item.hidden { display: none; }
+
+    .route-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+    .route-dot.ski { background: #4A90D9; }
+    .route-dot.run { background: #E8623A; }
+    .route-info { flex: 1; min-width: 0; }
+    .route-name { font-size: 0.95rem; font-weight: 600; color: #1a1a1a; line-height: 1.3; }
+    .route-peak { font-size: 0.82rem; color: #666; margin-top: 1px; }
+    .route-meta { font-size: 0.78rem; color: #999; margin-top: 2px; }
+    .route-stars { color: #c8a020; font-size: 0.8rem; letter-spacing: -0.05em; }
+
+    /* Detail panel */
+    #detail-panel {
+      border-top: 1px solid rgba(0,0,0,0.1); background: #eeeee9;
+      padding: 16px 20px 18px; display: none; flex-direction: column; gap: 9px;
+      max-height: 360px; overflow-y: auto; flex-shrink: 0;
+    }
+    #detail-panel.visible { display: flex; }
+    #detail-panel::-webkit-scrollbar { width: 3px; }
+    #detail-panel::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
+
+    #detail-header { position: relative; padding-right: 22px; }
+    #detail-close {
+      position: absolute; top: 0; right: 0; background: none; border: none;
+      font-size: 1.1rem; cursor: pointer; color: #999; line-height: 1;
+    }
+    #detail-close:hover { color: #1a1a1a; }
+    #detail-title { font-size: 1.05rem; font-weight: 600; line-height: 1.3; }
+    #detail-peak { font-size: 0.88rem; color: #555; margin-top: 1px; }
+
+    #detail-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+    .type-badge {
+      font-size: 0.72rem; padding: 2px 9px; border-radius: 12px;
+      font-style: italic; color: #fff;
+    }
+    .type-badge.ski { background: #4A90D9; }
+    .type-badge.run { background: #E8623A; }
+    .badge-stars { font-size: 0.88rem; color: #c8a020; letter-spacing: -0.05em; }
+    .badge-consequence {
+      font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;
+      font-weight: 600; color: #fff;
+    }
+    .badge-consequence.c1 { background: #5aaa5a; }
+    .badge-consequence.c2 { background: #e09020; }
+    .badge-consequence.c3 { background: #cc3333; }
+
+    #detail-stats {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    }
+    .stat-box { background: rgba(255,255,255,0.65); border-radius: 5px; padding: 7px 10px; }
+    .stat-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: #999; }
+    .stat-value { font-size: 0.98rem; font-weight: 600; color: #1a1a1a; margin-top: 1px; }
+
+    #detail-meta { font-size: 0.83rem; color: #555; display: flex; flex-direction: column; gap: 3px; }
+    .meta-row { display: flex; gap: 5px; }
+    .meta-label { font-weight: 600; color: #444; flex-shrink: 0; }
+
+    #detail-notes { font-size: 0.88rem; color: #555; font-style: italic; line-height: 1.55; }
+
+    #back-link {
+      position: fixed; top: 16px; left: 16px; z-index: 10;
+      background: rgba(245,245,240,0.92); border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 20px; padding: 6px 14px 6px 10px;
+      font-family: 'EB Garamond', Georgia, serif; font-size: 0.88rem;
+      color: #555; text-decoration: none; display: flex; align-items: center; gap: 5px;
+      backdrop-filter: blur(4px); transition: color 0.15s;
+    }
+    #back-link:hover { color: #1a1a1a; }
+
+    @media (max-width: 640px) {
+      #app { flex-direction: column; }
+      #map { height: 52vh; flex: none; }
+      #sidebar { width: 100%; height: 48vh; border-left: none; border-top: 1px solid rgba(0,0,0,0.08); }
+    }
+  </style>
+</head>
+<body>
+  <a id="back-link" href="/">&#8592; Quinn Coyle</a>
+  <div id="app">
+    <div id="map"></div>
+    <div id="sidebar">
+      <div id="sidebar-header">
+        <h1>Eastern Sierra Routes</h1>
+        <div class="subtitle">Inyo &amp; Mono Counties</div>
+      </div>
+      <div id="filters">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn ski" data-filter="ski">&#9731; Ski</button>
+        <button class="filter-btn run" data-filter="run">&#9872; Run</button>
+      </div>
+      <div id="route-list"></div>
+      <div id="detail-panel">
+        <div id="detail-header">
+          <button id="detail-close">&#215;</button>
+          <div id="detail-title"></div>
+          <div id="detail-peak"></div>
+          <div id="detail-badges"></div>
+        </div>
+        <div id="detail-stats"></div>
+        <div id="detail-meta"></div>
+        <div id="detail-notes"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+  <script>
+  // ── ROUTE DATA ────────────────────────────────────────────────────────────
+  // coords: [lon, lat] pairs (approach line, TH → drop-in)
+  // dropIn: [lon, lat] from provided GPS data
+
+  const ROUTES = [
+
+    // ── GUIDEBOOK SKI ROUTES (south → north) ─────────────────────────────
+
+    {
+      id: 'langley-ne-couloir',
+      name: 'Northeast Couloir', peak: 'Mt. Langley',
+      type: 'ski', stars: 3, aspect: 'All', consequence: 3,
+      steepest: '35°', average: '35°', season: 'All Season',
+      distance: '8¾ mi', gain: '9,426 ft', time: '8–12 hrs',
+      descentVert: '3,500 ft', summitElev: '14,026 ft',
+      terrain: 'Face, chute', bestMonths: 'Jan–May',
+      gear: 'Skins, crampons rec.',
+      trailhead: 'Mt. Langley TH (#51)',
+      dropIn: [-118.2382, 36.5229],
+      notes: "CA's southernmost 14er with quality chute skiing on the NE aspect. Long commitment — plan accordingly. All aspects hold snow in good years making this a true all-season objective.",
+      coords: [[-118.1912, 36.4830], [-118.2068, 36.4962], [-118.2225, 36.5096], [-118.2382, 36.5229]]
+    },
+    {
+      id: 'muir-99-switchbacks',
+      name: 'East Slope / 99 Switchbacks', peak: 'Mt. Muir',
+      type: 'ski', stars: 2, aspect: 'All', consequence: 2,
+      steepest: '35°', average: '35°', season: 'Winter / Spring',
+      distance: '8 mi / 4.5 mi', gain: '7,200 / 5,400 ft', time: '7–12 / 5–9 hrs',
+      descentVert: '1,700 ft', summitElev: '13,700 ft',
+      terrain: 'Face', bestMonths: 'Jan–May',
+      gear: 'Skins, crampons rec.',
+      trailhead: 'Whitney Winter Closure (#50) / Whitney Portal (#50b)',
+      dropIn: [-118.2914, 36.5591],
+      notes: 'Two approach options give flexibility. A moderate, wide-open east face — good introductory high-Sierra ski objective. Beware midday sun softening the snow quickly.',
+      coords: [[-118.2393, 36.5862], [-118.2554, 36.5780], [-118.2734, 36.5680], [-118.2914, 36.5591]]
+    },
+    {
+      id: 'russell-east-slope',
+      name: 'East Slope', peak: 'Mt. Russell',
+      type: 'ski', stars: 2, aspect: 'All', consequence: 2,
+      steepest: '35°', average: '35°', season: 'Winter / Spring',
+      distance: '7.5 mi / 4 mi', gain: '6,900 / 5,100 ft', time: '7–12 / 5–8 hrs',
+      descentVert: '2,750 ft', summitElev: '13,400 ft',
+      terrain: 'Face', bestMonths: 'Jan–Apr',
+      gear: 'Skins, crampons rec.',
+      trailhead: 'Whitney Winter Closure (#50) / Whitney Portal (#50b)',
+      dropIn: [-118.2825, 36.5911],
+      notes: 'Similar character to neighboring Muir but with a steeper rollover near the top. Whitney Portal approach (4 mi) is more efficient when road is open.',
+      coords: [[-118.2393, 36.5862], [-118.2537, 36.5862], [-118.2681, 36.5890], [-118.2825, 36.5911]]
+    },
+    {
+      id: 'williamson-bairs-creek',
+      name: 'North Fork Bairs Creek', peak: 'Mt. Williamson',
+      type: 'ski', stars: 3, aspect: 'All', consequence: 2,
+      steepest: '35°', average: '25°', season: 'All Season',
+      distance: '5 mi', gain: '8,400 ft', time: '8–12 hrs',
+      descentVert: '7,000 ft', summitElev: '14,370 ft',
+      terrain: 'Bowls', bestMonths: 'Jan–May',
+      gear: 'Skins, crampons helpful',
+      trailhead: 'North Fork Bairs Creek TH (#48)',
+      dropIn: [-118.3090, 36.6565],
+      notes: "Massive bowl skiing on CA's second-highest peak — 7,000 ft of descent is one of the range's biggest. Short approach but punishing gain. Plan for a very long day.",
+      coords: [[-118.2678, 36.7520], [-118.2815, 36.7202], [-118.2952, 36.6884], [-118.3090, 36.6565]]
+    },
+    {
+      id: 'independence-couloir',
+      name: 'Independence Couloir', peak: 'Independence Peak',
+      type: 'ski', stars: 4, aspect: 'All', consequence: 3,
+      steepest: '35°', average: '30°', season: 'Winter / Spring',
+      distance: '2.5 mi / 1 mi', gain: '3,900 / 3,000 ft', time: '4–6 / 3–5 hrs',
+      descentVert: '2,500 ft', summitElev: '11,700 ft',
+      terrain: 'Face, chute', bestMonths: 'Jan–May',
+      gear: 'Skins, crampons rec.',
+      trailhead: 'Seven Pines CG (#46) / Onion Valley (#46c)',
+      dropIn: [-118.3317, 36.7621],
+      notes: 'Four-star gem near Independence with a short, efficient approach. C3 consequence in a committing line — one of the best bang-for-buck couloirs in the range.',
+      coords: [[-118.3425, 36.7843], [-118.3390, 36.7782], [-118.3354, 36.7702], [-118.3317, 36.7621]]
+    },
+    {
+      id: 'university-north-face',
+      name: 'North Face', peak: 'University Peak',
+      type: 'ski', stars: 3, aspect: 'N', consequence: 3,
+      steepest: '38°', average: '35°', season: 'Winter / Spring',
+      distance: '5 mi / 3.5 mi', gain: '5,100 / 4,200 ft', time: '5–7 / 4–6 hrs',
+      descentVert: '2,500 ft', summitElev: '13,000 ft',
+      terrain: 'Chute, face', bestMonths: 'Jan–May',
+      gear: 'Skins, crampons rec.',
+      trailhead: 'Seven Pines CG (#46) / Onion Valley (#46c)',
+      dropIn: [-118.3608, 36.7490],
+      notes: 'Serious north-facing chute above Onion Valley. 38° max with C3 consequence. Best skied Jan–May while snowpack is stable. Multiple descent options from the summit ridge.',
+      coords: [[-118.3425, 36.7843], [-118.3483, 36.7725], [-118.3546, 36.7608], [-118.3608, 36.7490]]
+    },
+    {
+      id: 'sill-l-shaped',
+      name: 'L-Shaped Snowfield', peak: 'Mt. Sill',
+      type: 'ski', stars: 3, aspect: 'All', consequence: 3,
+      steepest: '35°', average: '35°', season: 'Winter / Spring',
+      distance: '6 mi / 4.5 mi', gain: '6,400 / 6,000 ft', time: '6–9 / 5–8 hrs',
+      descentVert: '1,500 ft', summitElev: '13,800 ft',
+      terrain: 'Chute', bestMonths: 'Jan–May',
+      gear: 'Skins, crampons rec.',
+      trailhead: 'Big Pine Winter Parking (#43) / Glacier Lodge (#43b)',
+      dropIn: [-118.5025, 37.0961],
+      notes: 'Named for its distinctive shape, this chute on one of the Palisades\' finest peaks is a Sierra classic. Glacier Lodge approach keeps the skin-in manageable. C3 — objective hazard from surrounding cliffs.',
+      coords: [[-118.5107, 37.1300], [-118.5080, 37.1187], [-118.5052, 37.1074], [-118.5025, 37.0961]]
+    },
+    {
+      id: 'peak-13103-south-fork',
+      name: 'South Fork Bowl', peak: 'Peak 13,103',
+      type: 'ski', stars: 2, aspect: 'All', consequence: 2,
+      steepest: '35°', average: '35°', season: 'Winter / Spring',
+      distance: '4 mi / 2.5 mi', gain: '5,100 / 4,700 ft', time: '3–5 / 2–5 hrs',
+      descentVert: '4,000 ft', summitElev: '12,300 ft',
+      terrain: 'Bowl', bestMonths: 'Jan–May',
+      gear: 'Skins required',
+      trailhead: 'Big Pine Winter Parking (#43) / Glacier Lodge (#43b)',
+      dropIn: [-118.4368, 37.0904],
+      notes: 'High-consequence bowl with 4,000 ft of skiable vertical — one of the biggest descents accessible from the Big Pine drainage. C2 but large runout consequences.',
+      coords: [[-118.4898, 37.1300], [-118.4722, 37.1168], [-118.4545, 37.1036], [-118.4368, 37.0904]]
+    },
+    {
+      id: 'emerson-north-couloir',
+      name: 'North Couloir', peak: 'Mt. Emerson',
+      type: 'ski', stars: 4, aspect: 'N', consequence: 3,
+      steepest: '45°', average: '40°', season: 'Winter / Spring',
+      distance: '4.25 mi / 3.75 mi', gain: '4,100 / 3,100 ft', time: '4–6 / 2–4 hrs',
+      descentVert: '1,500 ft', summitElev: '12,500 ft',
+      terrain: 'Chute', bestMonths: 'Jan–May',
+      gear: 'Skins, crampons rec., ice axe helpful',
+      trailhead: 'Bishop Park CG (#40) / Mt. Humphreys TH (#39c)',
+      dropIn: [-118.6538, 37.2433],
+      notes: 'One of the best couloirs in the Eastern Sierra — 1,500 ft of 45° sustained skiing in a clean, aesthetic line. Ice axe recommended. Holds good snow through May.',
+      coords: [[-118.6630, 37.2480], [-118.6599, 37.2464], [-118.6569, 37.2449], [-118.6538, 37.2433]]
+    },
+    {
+      id: 'peak-13121-south-face',
+      name: 'South Face', peak: 'Peak 13,121',
+      type: 'ski', stars: 2, aspect: 'S', consequence: 2,
+      steepest: '30°', average: '30°', season: 'Winter / Spring',
+      distance: '4 mi / 3.5 mi', gain: '4,100 / 3,100 ft', time: '3–5 / 2–4 hrs',
+      descentVert: '2,500 ft', summitElev: '12,750 ft',
+      terrain: 'Face', bestMonths: 'Jan–May',
+      gear: 'Skins, crampons useful',
+      trailhead: 'Bishop Park CG (#40) / Mt. Humphreys TH (#39c)',
+      dropIn: [-118.6571, 37.2572],
+      notes: 'Mellow south-facing slope ideal for spring corn conditions. Lower consequence (C2) makes it a good training objective. Often combinable with neighboring Emerson routes.',
+      coords: [[-118.6630, 37.2480], [-118.6610, 37.2510], [-118.6590, 37.2541], [-118.6571, 37.2572]]
+    },
+    {
+      id: 'basin-couloir',
+      name: 'Basin Couloir', peak: 'Basin Mountain',
+      type: 'ski', stars: 3, aspect: 'E', consequence: 3,
+      steepest: '35°', average: '35°', season: 'Winter / Spring',
+      distance: '5.25 mi / 3 mi', gain: '7,000 / 6,000 ft', time: '4–7 / 3–5 hrs',
+      descentVert: '4,700 ft', summitElev: '13,000 ft',
+      terrain: 'Chute', bestMonths: 'Jan–May',
+      gear: 'Skins, crampons rec.',
+      trailhead: 'The Buttermilks (#39) / Horton Creek (#39b)',
+      dropIn: [-118.6573, 37.2969],
+      notes: 'East-facing chute with 4,700 ft of skiable vert — one of the largest descents in the Bishop area. Check current Buttermilks access before visiting.',
+      coords: [[-118.6342, 37.3412], [-118.6419, 37.3264], [-118.6496, 37.3117], [-118.6573, 37.2969]]
+    },
+    {
+      id: 'tom-east-gully',
+      name: 'East Gully', peak: 'Mt. Tom',
+      type: 'ski', stars: 2, aspect: 'E', consequence: 3,
+      steepest: '35°', average: '35°', season: 'All Season',
+      distance: '6.5 mi', gain: '8,000 ft', time: '4–8 hrs',
+      descentVert: '6,000 ft', summitElev: '13,000 ft',
+      terrain: 'Gully', bestMonths: 'Jan–May',
+      gear: 'Skins, crampons rec.',
+      trailhead: 'Horton Creek CG (#38)',
+      dropIn: [-118.6563, 37.3430],
+      notes: 'Most direct line on a Bishop-area landmark. 6,000 ft of descent following the main drainage. Long approach but straightforward navigation.',
+      coords: [[-118.6391, 37.3573], [-118.6450, 37.3527], [-118.6507, 37.3479], [-118.6563, 37.3430]]
+    },
+    {
+      id: 'tom-elderberry',
+      name: 'Elderberry Canyon', peak: 'Mt. Tom',
+      type: 'ski', stars: 3, aspect: '—', consequence: 3,
+      steepest: '30°', average: '30°', season: 'Winter / Spring',
+      distance: '5.5 mi / 2.75 mi', gain: '6,100 / 5,500 ft', time: '6–10 / 4–6 hrs',
+      descentVert: '5,000 ft', summitElev: '11,000 ft',
+      terrain: 'Gully', bestMonths: 'Jan–Jun',
+      gear: 'Skins required',
+      trailhead: 'Vanadium Ranch Rd (#37) / Elderberry Drainage (#37b)',
+      dropIn: [-118.6531, 37.3510],
+      notes: 'Alternative western approach to Mt. Tom with a shorter winter skin-in. Dense vegetation low that opens into quality gully skiing above 9,000 ft. Good late-season option through June.',
+      coords: [[-118.6125, 37.3958], [-118.6261, 37.3808], [-118.6396, 37.3659], [-118.6531, 37.3510]]
+    },
+    {
+      id: 'gabb-east-face',
+      name: 'East Face', peak: 'Mt. Gabb',
+      type: 'ski', stars: 2, aspect: 'E', consequence: 3,
+      steepest: '35°', average: '35°', season: 'Winter / Spring',
+      distance: '11 mi / 7.25 mi', gain: '4,500 / 3,000 ft', time: '7–10 / 5–7 hrs',
+      descentVert: '2,500 ft', summitElev: '13,741 ft',
+      terrain: 'Face', bestMonths: 'Jan–May',
+      gear: 'Skins, crampons rec.',
+      trailhead: 'Rock Creek Sno-Park (#32) / Mosquito Flat TH (#32c)',
+      dropIn: [-118.8010, 37.3760],
+      notes: 'Long, sustained east face above the Rock Creek drainage. Mosquito Flat approach (7.25 mi) gives access to multiple peaks in the basin. Best in spring corn conditions.',
+      coords: [[-118.7843, 37.4334], [-118.7899, 37.4143], [-118.7955, 37.3952], [-118.8010, 37.3760]]
+    },
+    {
+      id: 'dade-hourglass',
+      name: 'The Hourglass', peak: 'Mt. Dade',
+      type: 'ski', stars: 2, aspect: '—', consequence: 2,
+      steepest: '35°', average: '35°', season: 'Winter / Spring',
+      distance: '7.5 mi / 4.25 mi', gain: '3,900 / 2,400 ft', time: '4–6 / 4–6 hrs',
+      descentVert: '1,000 ft', summitElev: '12,325 ft',
+      terrain: 'Chute', bestMonths: 'Jan–May',
+      gear: 'Skins required',
+      trailhead: 'Rock Creek Sno-Park (#32) / Mosquito Flat TH (#32c)',
+      dropIn: [-118.7730, 37.3790],
+      notes: 'Broader and more forgiving than the neighboring Cat Whisker. 35° sustained pitch — a solid beginner ski mountaineering objective from Mosquito Flat.',
+      coords: [[-118.7843, 37.4334], [-118.7805, 37.4153], [-118.7768, 37.3971], [-118.7730, 37.3790]]
+    },
+    {
+      id: 'dade-cat-whisker',
+      name: 'Cat Whisker Couloir', peak: 'Mt. Dade',
+      type: 'ski', stars: 3, aspect: '—', consequence: 3,
+      steepest: '45°', average: '40°', season: 'Winter / Spring',
+      distance: '8 mi / 4.25 mi', gain: '3,900 / 2,400 ft', time: '5–8 / 4–6 hrs',
+      descentVert: '1,000 ft', summitElev: '13,442 ft',
+      terrain: 'Chute', bestMonths: 'Jan–May',
+      gear: 'Skins, crampons rec.',
+      trailhead: 'Rock Creek Sno-Park (#32) / Mosquito Flat TH (#32c)',
+      dropIn: [-118.7790, 37.3820],
+      notes: 'Narrow, committing 45° couloir — one of Rock Creek\'s finest lines. Requires solid ski mountaineering skills. Best skied on consolidated spring snow after a stable snowpack.',
+      coords: [[-118.7843, 37.4334], [-118.7825, 37.4163], [-118.7808, 37.3991], [-118.7790, 37.3820]]
+    },
+    {
+      id: 'abbot-petit-griffon',
+      name: 'Petit Griffon', peak: 'Mt. Abbot',
+      type: 'ski', stars: 2, aspect: '—', consequence: 3,
+      steepest: '40°', average: '35°', season: 'Winter / Spring',
+      distance: '7.5 mi / 3.75 mi', gain: '3,700 / 2,200 ft', time: '5–8 / 3–6 hrs',
+      descentVert: '700 ft', summitElev: '12,800 ft',
+      terrain: 'Chute', bestMonths: 'Jan–May',
+      gear: 'Skins, crampons helpful',
+      trailhead: 'Rock Creek Sno-Park (#32) / Mosquito Flat TH (#32c)',
+      dropIn: [-118.7880, 37.3900],
+      notes: 'Seldom-skied couloir above Rock Creek\'s western basin. Low vertical (700 ft) but quality steep terrain. Combine with other Mosquito Flat objectives for a full day.',
+      coords: [[-118.7843, 37.4334], [-118.7855, 37.4189], [-118.7868, 37.4045], [-118.7880, 37.3900]]
+    },
+    {
+      id: 'sherwin-hose',
+      name: 'The Hose', peak: 'Sherwin Ridge',
+      type: 'ski', stars: 3, aspect: '—', consequence: 2,
+      steepest: '35°', average: '30°', season: 'All Season',
+      distance: '2.25 mi', gain: '1,800 ft', time: '1–2 hrs',
+      descentVert: '1,800 ft', summitElev: '9,900 ft',
+      terrain: 'Trees', bestMonths: 'Jan–May',
+      gear: 'Skins optional',
+      trailhead: 'Tamarack XC Ski Center (#20) / Old Mammoth Rd (#21)',
+      dropIn: [-118.9910, 37.6080],
+      notes: 'Mammoth local favorite — short approach from Tamarack leads to a classic fall-line tree shot. Good conditioning run when bigger objectives are out of condition.',
+      coords: [[-118.9681, 37.6098], [-118.9764, 37.6092], [-118.9837, 37.6086], [-118.9910, 37.6080]]
+    },
+    {
+      id: 'wood-east-face',
+      name: 'East Face', peak: 'Mt. Wood',
+      type: 'ski', stars: 4, aspect: 'E', consequence: 2,
+      steepest: '35°', average: '35°', season: 'Winter / Spring',
+      distance: '4.5 mi / 3.5 mi', gain: '5,225 / 4,750 ft', time: '5–8 / 4–6 hrs',
+      descentVert: '5,000 ft', summitElev: '12,637 ft',
+      terrain: 'Chute', bestMonths: 'Jan–Jun',
+      gear: 'Skins, crampons rec.',
+      trailhead: 'Silver Lake Closure (#13) / Parker Bench (#12c)',
+      dropIn: [-119.1630, 37.8080],
+      notes: 'One of the most celebrated lines in the Eastern Sierra — massive 5,000 ft east face above the June Lake Loop. Holds powder remarkably late. Access via Silver Lake or Parker Bench in spring.',
+      coords: [[-119.1302, 37.7743], [-119.1411, 37.7855], [-119.1520, 37.7967], [-119.1630, 37.8080]]
+    },
+    {
+      id: 'lewis-north-couloir',
+      name: 'North Couloir', peak: 'Mt. Lewis',
+      type: 'ski', stars: 2, aspect: 'N', consequence: 2,
+      steepest: '35°', average: '35°', season: 'All Season',
+      distance: '5.5 mi', gain: '4,300 ft', time: '3–4 hrs',
+      descentVert: '3,000 ft', summitElev: '11,500 ft',
+      terrain: 'Chute', bestMonths: 'Jan–Apr',
+      gear: 'Skins, crampons rec.',
+      trailhead: 'Lower Sawmill Canyon (#11)',
+      dropIn: [-119.1820, 37.8440],
+      notes: 'Seldom-skied north couloir in a quieter canyon near June Lake. 3,000 ft descent on consistent moderate terrain. Good objective for intermediate ski mountaineers avoiding crowds.',
+      coords: [[-119.1722, 37.8530], [-119.1755, 37.8500], [-119.1787, 37.8470], [-119.1820, 37.8440]]
+    },
+    {
+      id: 'false-white-north-chute',
+      name: 'North Chute', peak: 'False White Mountain',
+      type: 'ski', stars: 2, aspect: 'N', consequence: 3,
+      steepest: '35°', average: '35°', season: 'Winter / Spring',
+      distance: '10 mi / 3.5 mi', gain: '4,250 / 2,100 ft', time: '4–7 / 1.5–3 hrs',
+      descentVert: '1,000 ft', summitElev: '11,880 ft',
+      terrain: 'Chute', bestMonths: 'Dec–Jun',
+      gear: 'Skins required',
+      trailhead: 'Tioga Pass Lower Gate (#6) / Saddlebag Lake Rd (#6c)',
+      dropIn: [-119.2940, 37.8560],
+      notes: 'Long approach from the lower gate but Saddlebag Lake Rd shortens it dramatically when open. North-facing chute stays in good condition through June. Accessible from the Tioga corridor.',
+      coords: [[-119.2873, 37.9650], [-119.2896, 37.9286], [-119.2918, 37.8923], [-119.2940, 37.8560]]
+    },
+    {
+      id: 'white-east-face',
+      name: 'East Face', peak: 'White Mountain',
+      type: 'ski', stars: 1, aspect: 'E', consequence: 2,
+      steepest: '35°', average: '35°', season: 'Winter / Spring',
+      distance: '10 mi / 4 mi', gain: '4,650 / 2,500 ft', time: '5–8 / 2–3 hrs',
+      descentVert: '1,800 ft', summitElev: '12,057 ft',
+      terrain: 'Face', bestMonths: 'Dec–Jun',
+      gear: 'Skins required',
+      trailhead: 'Tioga Pass Lower Gate (#6) / Saddlebag Lake Rd (#6c)',
+      dropIn: [-119.3090, 37.9400],
+      notes: 'Broad east face with reliable snow Dec–Jun. Straightforward terrain with minimal objective hazard. Two access options depending on road conditions. Good early/late season option.',
+      coords: [[-119.2873, 37.9650], [-119.2945, 37.9567], [-119.3017, 37.9483], [-119.3090, 37.9400]]
+    },
+    {
+      id: 'gibbs-east-face',
+      name: 'East Face', peak: 'Mt. Gibbs',
+      type: 'ski', stars: 3, aspect: 'E', consequence: 3,
+      steepest: '40°', average: '35°', season: 'All Season',
+      distance: '4.5 mi', gain: '5,400 ft', time: '4–6 hrs',
+      descentVert: '2,400 ft', summitElev: '12,500 ft',
+      terrain: 'Chute', bestMonths: 'Jan–Jun',
+      gear: 'Skins, crampons strongly rec.',
+      trailhead: 'Bohler Canyon (#10)',
+      dropIn: [-119.1950, 37.8840],
+      notes: 'Steep east-facing chute above Bohler Canyon, heavily frequented by Mammoth locals. 40° max, C3 consequence. Entry can be icy — crampons strongly recommended.',
+      coords: [[-119.1851, 37.8878], [-119.1884, 37.8866], [-119.1917, 37.8853], [-119.1950, 37.8840]]
+    },
+    {
+      id: 'matterhorn-east',
+      name: 'East Couloir', peak: 'Matterhorn Peak',
+      type: 'ski', stars: 3, aspect: 'E', consequence: 3,
+      steepest: '40°', average: '30°', season: 'All Season',
+      distance: '4.5 mi', gain: '4,800 ft', time: '3.5–5 hrs',
+      descentVert: '4,000 ft', summitElev: '11,900 ft',
+      terrain: 'Chute', bestMonths: 'Dec–Apr',
+      gear: 'Skins, crampons rec.',
+      trailhead: 'Mono Village (#2)',
+      dropIn: [-119.3810, 38.0850],
+      notes: 'Classic east-facing couloir on a Yosemite-area peak accessed from Bridgeport. 4,000 ft of descent, 40° at the crux. Best in late winter when fully consolidated.',
+      coords: [[-119.3720, 38.0930], [-119.3750, 38.0903], [-119.3780, 38.0877], [-119.3810, 38.0850]]
+    },
+    {
+      id: 'matterhorn-west',
+      name: 'West Couloir', peak: 'Matterhorn Peak',
+      type: 'ski', stars: 3, aspect: 'W', consequence: 3,
+      steepest: '35°', average: '35°', season: 'All Season',
+      distance: '4.5 mi', gain: '4,500 ft', time: '3–5 hrs',
+      descentVert: '2,000 ft', summitElev: '11,900 ft',
+      terrain: 'Chute', bestMonths: 'Dec–Apr',
+      gear: 'Skins, crampons rec.',
+      trailhead: 'Mono Village (#2)',
+      dropIn: [-119.3830, 38.0950],
+      notes: 'West couloir sees later-season sun and can linger into April. 2,000 ft descent, generally lower consequence than the east. Pair with the east couloir for a full traverse day.',
+      coords: [[-119.3720, 38.0930], [-119.3757, 38.0937], [-119.3793, 38.0943], [-119.3830, 38.0950]]
+    },
+    {
+      id: 'matterhorn-ski-dreams',
+      name: 'Ski Dreams', peak: 'Matterhorn Peak',
+      type: 'ski', stars: 3, aspect: '—', consequence: 3,
+      steepest: '35°', average: '35°', season: 'All Season',
+      distance: '4.5 mi', gain: '4,600 ft', time: '3–5 hrs',
+      descentVert: '1,800 ft', summitElev: '11,800 ft',
+      terrain: 'Chute', bestMonths: 'Dec–Apr',
+      gear: 'Skins, crampons rec.',
+      trailhead: 'Mono Village (#2)',
+      dropIn: [-119.3780, 38.0940],
+      notes: 'Sustained aesthetic line between the east and west couloirs. 1,800 ft of classic Sierra steep skiing. All Matterhorn lines accessed from Mono Village via Horse Creek Trail.',
+      coords: [[-119.3720, 38.0930], [-119.3740, 38.0933], [-119.3760, 38.0937], [-119.3780, 38.0940]]
+    },
+
+    // ── MAMMOTH AREA SKI ROUTES ────────────────────────────────────────────
+
+    {
+      id: 'mammoth-crest-ski',
+      name: 'Mammoth Crest', peak: 'Mammoth Crest',
+      type: 'ski', stars: 3,
+      distance: '6.2 mi', gain: '2,100 ft',
+      descentVert: '2,100 ft', summitElev: '11,053 ft',
+      terrain: 'Ridge, face', bestMonths: 'Jan–Apr',
+      gear: 'Skins',
+      trailhead: 'Horseshoe Lake TH',
+      notes: 'Classic above-treeline ski tour with 360° views over the Ritter Range and Mono Basin. Best January–April. Watch for cornices on the east aspects.',
+      coords: [
+        [-119.0354, 37.6133], [-119.0368, 37.6112], [-119.0385, 37.6088],
+        [-119.0405, 37.6058], [-119.0428, 37.6022], [-119.0448, 37.5990],
+        [-119.0466, 37.5958], [-119.0480, 37.5924], [-119.0492, 37.5893],
+        [-119.0505, 37.5860], [-119.0518, 37.5832]
+      ]
+    },
+    {
+      id: 'san-joaquin-ridge',
+      name: 'San Joaquin Ridge', peak: 'San Joaquin Ridge',
+      type: 'ski', stars: 2,
+      distance: '5.1 mi', gain: '850 ft',
+      terrain: 'Ridge', bestMonths: 'Jan–Apr',
+      gear: 'Skins',
+      trailhead: 'Minaret Summit Rd',
+      notes: 'Long, sustained ridge run above 10,000 ft with unobstructed views of the Minarets and Ritter/Banner. Minimal avalanche exposure on the ridge itself.',
+      coords: [
+        [-119.0573, 37.6619], [-119.0545, 37.6601], [-119.0518, 37.6578],
+        [-119.0490, 37.6554], [-119.0462, 37.6530], [-119.0433, 37.6505],
+        [-119.0405, 37.6480], [-119.0378, 37.6456], [-119.0350, 37.6432]
+      ]
+    },
+    {
+      id: 'bloody-couloir',
+      name: 'Bloody Mountain Couloir', peak: 'Bloody Mountain',
+      type: 'ski', stars: 3,
+      distance: '4.3 mi', gain: '2,400 ft',
+      terrain: 'Couloir', bestMonths: 'Mar–May',
+      gear: 'Skins, crampons, ice axe',
+      trailhead: 'Convict Lake',
+      notes: 'Steep north-facing couloir above Convict Lake. 35–40° sustained pitch. Holds snow late into spring. Serious avalanche terrain — stable snowpack required.',
+      coords: [
+        [-118.8467, 37.5935], [-118.8487, 37.5903], [-118.8512, 37.5873],
+        [-118.8538, 37.5842], [-118.8562, 37.5813], [-118.8588, 37.5785],
+        [-118.8613, 37.5758], [-118.8635, 37.5733]
+      ]
+    },
+    {
+      id: 'laurel-mountain',
+      name: 'Laurel Mountain', peak: 'Laurel Mountain',
+      type: 'ski', stars: 3,
+      distance: '5.5 mi', gain: '2,600 ft',
+      terrain: 'Face', bestMonths: 'Mar–May',
+      gear: 'Skins, crampons',
+      trailhead: 'Sherwin Creek Rd',
+      notes: 'Big sustained face with multiple line options. North and NE exposures keep snow quality. March–May is prime. Several descent options from the summit ridge.',
+      coords: [
+        [-118.9005, 37.5870], [-118.9038, 37.5842], [-118.9068, 37.5813],
+        [-118.9095, 37.5782], [-118.9118, 37.5750], [-118.9138, 37.5720],
+        [-118.9155, 37.5690], [-118.9168, 37.5660], [-118.9178, 37.5630],
+        [-118.9185, 37.5600]
+      ]
+    },
+
+    // ── TRAIL RUNS ─────────────────────────────────────────────────────────
+
+    {
+      id: 'duck-pass',
+      name: 'Duck Pass Trail', type: 'run',
+      distance: '8.8 mi', gain: '1,600 ft',
+      notes: 'Coldwater Campground singletrack through pines to Emerald and Sky Meadows lakes, then steep push to Duck Pass (10,797 ft). Duck Lake below is stunning. Late June–October.',
+      coords: [
+        [-119.0134, 37.6020], [-119.0143, 37.5992], [-119.0152, 37.5965],
+        [-119.0158, 37.5938], [-119.0163, 37.5910], [-119.0168, 37.5882],
+        [-119.0172, 37.5855], [-119.0175, 37.5828], [-119.0180, 37.5800],
+        [-119.0182, 37.5772], [-119.0185, 37.5745], [-119.0188, 37.5718],
+        [-119.0190, 37.5690], [-119.0190, 37.5662], [-119.0185, 37.5635],
+        [-119.0175, 37.5608], [-119.0160, 37.5582], [-119.0140, 37.5558],
+        [-119.0115, 37.5538]
+      ]
+    },
+    {
+      id: 'crystal-lake',
+      name: 'Crystal Lake & Mammoth Crest', type: 'run',
+      distance: '9.2 mi', gain: '1,800 ft',
+      notes: 'Start at Lake George, climb through the Lakes Basin to Crystal Lake, push up to the Mammoth Crest for panoramic views. Often runnable by late June.',
+      coords: [
+        [-119.0193, 37.6054], [-119.0208, 37.6042], [-119.0222, 37.6030],
+        [-119.0238, 37.6020], [-119.0252, 37.6010], [-119.0267, 37.6000],
+        [-119.0282, 37.5990], [-119.0298, 37.5978], [-119.0315, 37.5964],
+        [-119.0333, 37.5948], [-119.0352, 37.5930], [-119.0372, 37.5910],
+        [-119.0392, 37.5888], [-119.0410, 37.5865], [-119.0428, 37.5843]
+      ]
+    },
+    {
+      id: 'inyo-craters',
+      name: 'Inyo Craters & Earthquake Fault', type: 'run',
+      distance: '5.4 mi', gain: '480 ft',
+      notes: 'Mellow volcanic landscape run through the Inyo Craters and past the Earthquake Fault. Good for a recovery day. Mix of dirt road and singletrack. Unusual geology.',
+      coords: [
+        [-118.9900, 37.6710], [-118.9870, 37.6692], [-118.9840, 37.6675],
+        [-118.9812, 37.6660], [-118.9785, 37.6648], [-118.9760, 37.6638],
+        [-118.9735, 37.6628], [-118.9708, 37.6618], [-118.9682, 37.6608],
+        [-118.9658, 37.6598], [-118.9635, 37.6590]
+      ]
+    },
+    {
+      id: 'june-lake-loop',
+      name: 'June Lake Loop Ridge', type: 'run',
+      distance: '11.3 mi', gain: '2,200 ft',
+      notes: 'High route above the June Lake Loop with views down to all four lakes and across to Carson Peak. More remote feel than Mammoth runs. Start from June Lake Trailhead.',
+      coords: [
+        [-119.0723, 37.7828], [-119.0698, 37.7802], [-119.0672, 37.7778],
+        [-119.0645, 37.7755], [-119.0618, 37.7733], [-119.0592, 37.7712],
+        [-119.0568, 37.7692], [-119.0545, 37.7672], [-119.0522, 37.7652],
+        [-119.0500, 37.7632], [-119.0478, 37.7613], [-119.0455, 37.7595],
+        [-119.0432, 37.7578]
+      ]
+    }
+  ];
+
+  // ── MAP ────────────────────────────────────────────────────────────────────
+
+  mapboxgl.accessToken = 'pk.eyJ1IjoicWNveWxlIiwiYSI6ImNrdXBydnF0ZDBscm4yeHBnZmkwdm15MmEifQ.xhgKU0DtBHlzyuwygiseOA';
+
+  const map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/outdoors-v12',
+    center: [-118.85, 37.35],
+    zoom: 8.2,
+    pitch: 35,
+    bearing: -10
+  });
+
+  map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), 'top-left');
+  map.addControl(new mapboxgl.ScaleControl({ unit: 'imperial' }), 'bottom-left');
+
+  const SKI_COLOR = '#4A90D9';
+
+  const RUN_COLOR = '#E8623A';
+  const SKI_ACTIVE = '#1a6fc4';
+  const RUN_ACTIVE = '#c94d23';
+
+  let activeRouteId = null;
+  let currentFilter = 'all';
+
+  buildRouteList();
+
+  map.on('load', () => {
+    map.addSource('mapbox-dem', {
+      type: 'raster-dem', url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+      tileSize: 512, maxzoom: 14
+    });
+    map.setTerrain({ source: 'mapbox-dem', exaggeration: 1.5 });
+
+    ROUTES.forEach(route => {
+      const color = route.type === 'ski' ? SKI_COLOR : RUN_COLOR;
+
+      map.addSource(route.id, {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: { id: route.id, type: route.type },
+          geometry: { type: 'LineString', coordinates: route.coords }
+        }
+      });
+
+      map.addLayer({
+        id: route.id + '-casing', type: 'line', source: route.id,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': 'rgba(255,255,255,0.8)', 'line-width': 6, 'line-opacity': 0.9 }
+      });
+      map.addLayer({
+        id: route.id + '-line', type: 'line', source: route.id,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': color, 'line-width': 3, 'line-opacity': 0.9 }
+      });
+      map.addLayer({
+        id: route.id + '-hit', type: 'line', source: route.id,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': 'transparent', 'line-width': 20 }
+      });
+
+      // Drop-in marker for guidebook routes
+      if (route.dropIn) {
+        const el = document.createElement('div');
+        el.style.cssText = `width:8px;height:8px;border-radius:50%;background:${color};
+          border:2px solid rgba(255,255,255,0.9);cursor:pointer;`;
+        el.addEventListener('click', () => selectRoute(route.id));
+        new mapboxgl.Marker({ element: el })
+          .setLngLat(route.dropIn)
+          .addTo(map);
+      }
+
+      map.on('click', route.id + '-hit', () => selectRoute(route.id));
+      map.on('mouseenter', route.id + '-hit', () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', route.id + '-hit', () => { map.getCanvas().style.cursor = ''; });
+    });
+  });
+
+  // ── ROUTE LIST ─────────────────────────────────────────────────────────────
+
+  function buildRouteList() {
+    const list = document.getElementById('route-list');
+    list.innerHTML = '';
+    ROUTES.forEach(route => {
+      const item = document.createElement('div');
+      item.className = 'route-item';
+      item.dataset.id = route.id;
+      item.dataset.type = route.type;
+
+      const starsHTML = route.stars
+        ? `<span class="route-stars">${'★'.repeat(route.stars)}${'☆'.repeat(4 - route.stars)}</span> · `
+        : '';
+      const peakHTML = route.peak && route.peak !== route.name
+        ? `<div class="route-peak">${route.peak}</div>` : '';
+
+      const metaParts = [route.distance, route.gain ? route.gain + ' gain' : null,
+        route.terrain].filter(Boolean);
+
+      item.innerHTML = `
+        <div class="route-dot ${route.type}"></div>
+        <div class="route-info">
+          <div class="route-name">${route.name}</div>
+          ${peakHTML}
+          <div class="route-meta">${starsHTML}${metaParts.join(' · ')}</div>
+        </div>`;
+      item.addEventListener('click', () => selectRoute(route.id));
+      list.appendChild(item);
+    });
+  }
+
+  // ── SELECT / HIGHLIGHT ─────────────────────────────────────────────────────
+
+  function selectRoute(id) {
+    const route = ROUTES.find(r => r.id === id);
+    if (!route) return;
+
+    if (activeRouteId && activeRouteId !== id) {
+      const prev = ROUTES.find(r => r.id === activeRouteId);
+      if (prev) setLineStyle(prev, false);
+      document.querySelectorAll('.route-item').forEach(el => el.classList.remove('active'));
+    }
+
+    if (activeRouteId === id) {
+      setLineStyle(route, false);
+      activeRouteId = null;
+      document.querySelectorAll('.route-item').forEach(el => el.classList.remove('active'));
+      document.getElementById('detail-panel').classList.remove('visible');
+      return;
+    }
+
+    activeRouteId = id;
+    setLineStyle(route, true);
+    document.querySelectorAll('.route-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.id === id);
+    });
+
+    // Scroll list item into view
+    const activeItem = document.querySelector(`.route-item[data-id="${id}"]`);
+    if (activeItem) activeItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+    const bounds = route.coords.reduce(
+      (b, c) => b.extend(c),
+      new mapboxgl.LngLatBounds(route.coords[0], route.coords[0])
+    );
+    map.fitBounds(bounds, { padding: { top: 80, bottom: 80, left: 60, right: 380 }, maxZoom: 13, duration: 800 });
+
+    showDetail(route);
+  }
+
+  function setLineStyle(route, active) {
+    if (!map.getLayer(route.id + '-line')) return;
+    const color = active
+      ? (route.type === 'ski' ? SKI_ACTIVE : RUN_ACTIVE)
+      : (route.type === 'ski' ? SKI_COLOR : RUN_COLOR);
+    map.setPaintProperty(route.id + '-line', 'line-color', color);
+    map.setPaintProperty(route.id + '-line', 'line-width', active ? 4.5 : 3);
+    map.setPaintProperty(route.id + '-casing', 'line-width', active ? 8 : 6);
+  }
+
+  // ── DETAIL PANEL ───────────────────────────────────────────────────────────
+
+  function showDetail(route) {
+    document.getElementById('detail-title').textContent = route.name;
+    const peakEl = document.getElementById('detail-peak');
+    if (route.peak && route.peak !== route.name) {
+      peakEl.textContent = route.peak;
+      peakEl.style.display = 'block';
+    } else {
+      peakEl.style.display = 'none';
+    }
+
+    // Badges
+    let badges = `<span class="type-badge ${route.type}">${route.type === 'ski' ? 'Backcountry Ski' : 'Trail Run'}</span>`;
+    if (route.stars) badges += `<span class="badge-stars">${'★'.repeat(route.stars)}${'☆'.repeat(4 - route.stars)}</span>`;
+    if (route.consequence) {
+      badges += `<span class="badge-consequence c${route.consequence}">C${route.consequence}</span>`;
+    }
+    document.getElementById('detail-badges').innerHTML = badges;
+
+    // Stats grid
+    const stats = [
+      ['Distance', route.distance],
+      ['Total Gain', route.gain],
+      route.time ? ['Est. Time', route.time] : null,
+      route.summitElev ? ['Summit Elev', route.summitElev] : null,
+      route.descentVert ? ['Descent Vert', route.descentVert] : null,
+      (route.steepest && route.average) ? ['Max / Avg', `${route.steepest} / ${route.average}`] : null,
+    ].filter(Boolean);
+
+    document.getElementById('detail-stats').innerHTML = stats
+      .map(([label, val]) => `<div class="stat-box"><div class="stat-label">${label}</div><div class="stat-value">${val}</div></div>`)
+      .join('');
+
+    // Meta
+    const metaEl = document.getElementById('detail-meta');
+    const metaRows = [
+      route.terrain ? ['Terrain', route.terrain] : null,
+      route.bestMonths ? ['Best', route.bestMonths] : null,
+      route.gear ? ['Gear', route.gear] : null,
+      route.trailhead ? ['Trailhead', route.trailhead] : null,
+      (route.aspect && route.aspect !== '—') ? ['Aspect', route.aspect] : null,
+    ].filter(Boolean);
+
+    if (metaRows.length) {
+      metaEl.innerHTML = metaRows
+        .map(([label, val]) => `<div class="meta-row"><span class="meta-label">${label}:</span>${val}</div>`)
+        .join('');
+      metaEl.style.display = 'flex';
+    } else {
+      metaEl.style.display = 'none';
+    }
+
+    document.getElementById('detail-notes').textContent = route.notes || '';
+    document.getElementById('detail-panel').classList.add('visible');
+  }
+
+  document.getElementById('detail-close').addEventListener('click', () => {
+    document.getElementById('detail-panel').classList.remove('visible');
+    if (activeRouteId) {
+      const route = ROUTES.find(r => r.id === activeRouteId);
+      if (route) setLineStyle(route, false);
+      document.querySelectorAll('.route-item').forEach(el => el.classList.remove('active'));
+      activeRouteId = null;
+    }
+  });
+
+  // ── FILTERS ────────────────────────────────────────────────────────────────
+
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentFilter = btn.dataset.filter;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      document.querySelectorAll('.route-item').forEach(item => {
+        item.classList.toggle('hidden', currentFilter !== 'all' && item.dataset.type !== currentFilter);
+      });
+
+      ROUTES.forEach(route => {
+        const vis = (currentFilter === 'all' || route.type === currentFilter) ? 'visible' : 'none';
+        ['casing', 'line', 'hit'].forEach(s => {
+          if (map.getLayer(route.id + '-' + s))
+            map.setLayoutProperty(route.id + '-' + s, 'visibility', vis);
+        });
+      });
+
+      if (activeRouteId) {
+        const active = ROUTES.find(r => r.id === activeRouteId);
+        if (active && currentFilter !== 'all' && active.type !== currentFilter) {
+          setLineStyle(active, false);
+          activeRouteId = null;
+          document.querySelectorAll('.route-item').forEach(el => el.classList.remove('active'));
+          document.getElementById('detail-panel').classList.remove('visible');
+        }
+      }
+    });
+  });
+  </script>
+</body>
+</html>

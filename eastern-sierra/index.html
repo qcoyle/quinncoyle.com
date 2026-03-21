@@ -904,7 +904,10 @@
     if (currentSort === 'north-south') {
       copy.sort((a, b) => (b.dropIn ? b.dropIn[1] : 0) - (a.dropIn ? a.dropIn[1] : 0));
     } else if (currentSort === 'consequence') {
-      copy.sort((a, b) => (a.consequence || 0) - (b.consequence || 0));
+      copy.sort((a, b) => {
+        const ac = a.consequence || 99, bc = b.consequence || 99;
+        return ac - bc;
+      });
     } else if (currentSort === 'length') {
       copy.sort((a, b) => parseDistance(a.distance) - parseDistance(b.distance));
     }

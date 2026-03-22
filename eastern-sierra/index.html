@@ -195,7 +195,7 @@
       <div id="sort-bar">
         <span class="sort-label">Sort</span>
         <button class="sort-btn active" data-sort="north-south">N → S</button>
-        <button class="sort-btn" data-sort="consequence">&#9760; Consequence</button>
+        <button class="sort-btn" data-sort="consequence">&#9760;&#xFE0E; Consequence</button>
         <button class="sort-btn" data-sort="length">&#8597; Length</button>
       </div>
       <div id="route-list"></div>
@@ -1128,7 +1128,7 @@
         ? `<span class="route-stars">${'★'.repeat(s)}${'☆'.repeat(4 - s)}</span> `
         : '';
       const consequenceHTML = route.consequence
-        ? `<span class="route-consequence">${'<span class="skull-filled">☠</span>'.repeat(route.consequence)}${'<span class="skull-empty">☠</span>'.repeat(4 - route.consequence)}</span> · `
+        ? `<span class="route-consequence">${'<span class="skull-filled">☠&#xFE0E;</span>'.repeat(route.consequence)}${'<span class="skull-empty">☠&#xFE0E;</span>'.repeat(4 - route.consequence)}</span> · `
         : (route.stars ? ' · ' : '');
       const peakHTML = route.peak && route.peak !== route.name
         ? `<div class="route-peak">${route.peak}</div>` : '';
